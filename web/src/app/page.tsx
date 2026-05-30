@@ -80,7 +80,7 @@ export default function Page() {
   return (
     <main className="mx-auto max-w-lg p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">ToDo</h1>
+        <h1 className="text-2xl font-semibold">ToDo一覧</h1>
         <button type="button" className={secondaryButtonClassName} onClick={signOut}>
           ログアウト
         </button>

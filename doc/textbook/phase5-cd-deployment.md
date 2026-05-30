@@ -43,7 +43,7 @@ pnpm run build
 | 使う場所 | 入れる値 |
 |----------|----------|
 | **`web/.env.local`**（ローカル開発・E2E） | `http://127.0.0.1:54321` と手元 `supabase status` の Publishable key（フェーズ3 §6） |
-| **GitHub Secret / Vercel 環境変数**（CI Build・デプロイ） | **クラウド Supabase**の Project URL / anon public キー（**1.2** / **3.3**） |
+| **GitHub Secret / Vercel 環境変数**（CI Build・デプロイ） | **クラウド Supabase**の Project URL / anon public キー（**1.2** / **3.**） |
 
 本番ビルドの挙動を先に確かめる場合、一時的に次のように **クラウドの値**で `build` だけ通すこともできる（値はフェーズ1で控えたもの）。
 
@@ -54,7 +54,7 @@ export NEXT_PUBLIC_SUPABASE_ANON_KEY="<your-anon-public-key>"
 pnpm run build
 ```
 
-- ここで `Supabase environment variables are not set` などが出る場合、Vercel 側の環境変数未設定と同種の失敗になる。**フェーズ5の 3.3** で Vercel に変数を入れるか、上記 export でローカル build を通してから進む。
+- ここで `Supabase environment variables are not set` などが出る場合、Vercel 側の環境変数未設定と同種の失敗になる。**3.** で Vercel に変数を入れるか、上記 export でローカル build を通してから進む。
 
 ### 1.2 GitHub Secret とリモート `main` の確認
 
@@ -153,108 +153,128 @@ supabase db push
 
 ### 2.3 本番データの接続先
 
-デプロイ後のアプリは **クラウド**の Project URL / anon key を読む。ローカル `supabase start` の URL は本番では使わない。Vercel の環境変数（**3.3**）に **クラウド**の値を入れる。
+デプロイ後のアプリは **クラウド**の Project URL / anon key を読む。Vercel の環境変数（**3.**）に **クラウド**の値を入れる。
 
 ---
 
 ## 3. Vercel プロジェクトの登録（Import）
 
-GitHub リポジトリを Vercel に Import し、Project を作成する。
+Import 画面では **Framework Preset を選べない**（空欄グレーアウト）ことが多い。**そのまま Deploy → Settings で Preset を直して Redeploy** の 2 ステップで進める。
 
-### 3.1 Import 〜 New Project の設定画面
+### ステップ 1 — Import して Deploy
 
-リポジトリを選ぶと、**同じ画面**でビルド設定・環境変数を入れ、最後に **Deploy** で Project 作成と初回デプロイが始まる（この画面に **Save** ボタンは無い）。
+[Dashboard](https://vercel.com/dashboard) → **Add New…** → **Project** → 学習用リポジトリを **Import**。
 
-1. [Vercel Dashboard](https://vercel.com/dashboard) → **Add New…** → **Project**。
-2. **Import Git Repository** で、**1.2** で `main` が最新になっている学習用リポジトリを選ぶ（一覧に無い場合は **Adjust GitHub App Permissions** でリポジトリを追加）。
-3. フレームワークは **Next.js** と検出されればそのまま進む。
-4. 下記 **3.2** のビルド設定と **3.3** の環境変数を済ませる。
-5. 画面下部の **Deploy** を押す（表示が **Deployment** に近い表記でも、初回デプロイを開始するボタンとして扱う）。失敗したら **3.4**。
-
-### 3.2 モノレポ設定（重要）
-
-New Project 画面の **Configure Project** で、リポジトリルートの `web/` を指定する。
+Import 画面（**Deploy** で Project 作成と初回デプロイが始まる。**Save** ボタンは無い）で次を設定する。
 
 | 項目 | 値 |
 |------|-----|
-| **Root Directory** | `web`（**Edit** で `web` を指定） |
-| **Framework Preset** | Next.js |
-| **Build Command** | 既定の `pnpm run build` または `next build` |
-| **Install Command** | 既定の `pnpm install`（`web/pnpm-lock.yaml` があること） |
-| **Output Directory** | 既定（Next.js は通常変更不要） |
+| **Root Directory** | `web`（**Edit** → `web` → **Continue**） |
+| **Application Preset** | **空欄グレーアウトのまま**（入力できない。ステップ 2 で直す） |
+| **Build Command** | 空なら `pnpm run build` |
+| **Install Command** | 空なら `pnpm install` |
+| **Environment Variables** | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（**1.2** と同じ**クラウド**の値）→ **Production** と **Preview** |
 
-### 3.3 環境変数（Deploy の前）
+- ローカル用（`http://127.0.0.1:54321` 等）は入れない（`web/.env.local` のみ）。
+- 設定できたら **Deploy**。**Ready** になるまで待つ（ビルド失敗時は下記「失敗時」）。
 
-同じ New Project 画面の **Environment Variables**（または **Add**）で、**Deploy を押す前**に次を入れる。
+### ステップ 2 — Build and Deployment で Preset を直して Redeploy
 
-> **入れる値はクラウド Supabase（本番プロジェクト）**
+1. **Settings** → **Build and Deployment** → **Framework Settings** → **Framework Preset** を **Next.js** → **Save**。
+2. **Redeploy** — **Deployments** → デプロイ行をクリック → 詳細画面**左上** **⋯** → **Redeploy** → **Ready**（一覧の ⋯ からできない UI あり）。
+3. **Production** の **Visit** でアプリが開く（ログイン画面で OK）→ **4.** へ。
+
+> Preset 空のまま Deploy すると、ビルドは成功しても URL が **NOT_FOUND** になり得る。ステップ 2 は必須。
+
+**Redeploy の共通ルール** — 環境変数や Build 設定を変えたときは、先に **Save** してから上記 **Redeploy** する。
+
+**失敗時（要点）**
+
+| 症状 | 対処 |
+|------|------|
+| `environment variables are not set` | 環境変数を **Production** / **Preview** 付きで入れて **Redeploy** |
+| `package.json` が見つからない | **Root Directory** = `web` |
+| **Ready** だが **NOT_FOUND** | ステップ 2 の **Framework Preset = Next.js** を確認 |
+
+---
+
+## 4. デプロイ結果の確認
+
+1. **Production** が **Ready** で **Visit** からアプリが開く（**3.** ステップ 2 済み）。
+2. 以降 **`main` マージ → Production**、**PR → Preview** が自動デプロイされる。
+3. **5.**（Supabase Auth URL）→ **6.**（本番動作確認）へ。
+
+| Git | Vercel | URL の例 |
+|-----|--------|----------|
+| `main` へマージ | Production | `https://<project>.vercel.app` |
+| PR | Preview | `https://<branch>-<hash>.vercel.app` など |
+
+---
+
+## 5. Supabase Auth の URL 設定（必須）
+
+本アプリは**メールアドレス + パスワード認証**を使う。本番（クラウド）の Supabase は**メール確認（Confirm email）がデフォルトで有効**なため、サインアップ時に**確認メール内のリンク**が送られ、そのリンクの遷移先として Site URL / Redirect URLs を使う。**§6 の本番動作確認の前**に、Vercel の Production URL が分かり次第、Supabase に登録する。
+
+1. Vercel **Deployments** の **Production** URL を控える（例: `https://<project>.vercel.app`）。**4.** で **Ready** かつ **Visit** でアプリが開けることを確認してから進む。
+2. Supabase ダッシュボード → **Authentication** → **URL Configuration**。
+3. 次を設定する。
+
+| 項目 | 値（例） | 役割 |
+|------|----------|------|
+| **Site URL** | Production URL（`https://<project>.vercel.app`） | **確認メール内リンクのベース URL**（ここが `http://localhost:3000` のままだと、本番サインアップ後のメールが localhost を指す） |
+| **Redirect URLs** | 下記を **1 行ずつ**追加 | 確認・OAuth 等の**許可されたリダイレクト先**（Site URL 変更に加え、ローカル / Preview 用も登録） |
+
+**Redirect URLs に追加する行（学習用の最小セット）:**
+
+```
+http://127.0.0.1:3000/**
+http://localhost:3000/**
+https://<project>.vercel.app/**
+https://*-<project>.vercel.app/**
+```
+
+- `<project>` は Vercel のプロジェクト名（Production ホスト名のサブドメイン部分）。
+- 3 行目は **Production**、4 行目は **PR Preview**（`https://<branch>-<hash>.vercel.app` 形式）向けのワイルドカード。
+- Preview のホスト名が異なる場合は、失敗した Preview URL を **Redirect URLs** に追記して **Save** する。
+
+4. **Save** する。
+
+- **Site URL を直す前に送られた確認メール**は、リンク先が古いまま。**Save 後に再サインアップ**するか、Supabase ダッシュボード → **Authentication** → **Users** から該当ユーザを削除してやり直す。
+
+> **ローカルと本番でサインアップ挙動が違う点に注意**
 >
-> - **Production / Preview 用**：フェーズ1で控えた **Supabase ダッシュボード**の Project URL / **anon public** キー（`1.2` の GitHub Secret と**同じクラウドの値**でよい）。
-> - **ローカル開発用ではない**：`http://127.0.0.1:54321` や手元 `supabase start` のキーは **`web/.env.local` のみ**に置く。Vercel にローカル値を入れると、デプロイ先から Supabase に接続できない。
-
-| Key | Value（クラウド Supabase） | 適用先 |
-|-----|--------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ダッシュボードの Project URL（`/rest/v1/` は付けない） | **Production** と **Preview** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **anon public** キー | **Production** と **Preview** |
-
-- **service_role** は入れない。Database の接続 URI も不要。
-
-### 3.4 デプロイに失敗した場合
-
-**Deployments** で失敗した行を開き、**Building** のログを末尾まで確認する。直したあとは **Deployments** → 対象の **⋯** → **Redeploy**（環境変数を変えたときは **Settings** → **Environment Variables** で **Save** してから Redeploy）。
-
-| ログ・症状 | 対処 |
-|------------|------|
-| `Supabase environment variables are not set` | **3.3** の `NEXT_PUBLIC_*` が未設定、または **Production** / **Preview** に付いていない。設定後 **Redeploy**。 |
-| `No such file` / `package.json` が見つからない | **Root Directory** が `web` になっているか（**3.2**）。**Settings** → **General** で修正して **Redeploy**。 |
-| `pnpm: command not found` / インストール失敗 | **Settings** → **General** の **Install Command** を `corepack enable && corepack prepare pnpm@9 --activate && pnpm install` に変更して **Redeploy**（必要なときだけ）。 |
-| Node の不一致などビルドエラー | Import 画面に **Node.js Version** が無いことが多い。**Settings** → **General** で **24.x** など（フェーズ2と同メジャー）に合わせて **Redeploy**。 |
-| 原因が分からない | ローカルと GitHub Actions で `pnpm run build` が通るか先に確認（**1.** / **1.2**）。通るのに Vercel だけ失敗なら、上記の設定差分を疑う。 |
+> - **ローカル**（`supabase start`）は `config.toml` で**メール確認をオフ**にしているため、サインアップ直後にそのままログインできる（E2E もこれを前提）。
+> - **本番（クラウド）**は**メール確認がデフォルト ON**。サインアップ後に届く確認メールのリンクを開くまで、`signInWithPassword` は `Email not confirmed` で失敗する。本番で「サインアップしたのにログインできない」場合はメール確認待ちを疑う。
+> - 学習用に本番でも即ログインしたいときは、Supabase ダッシュボード → **Authentication** → **Sign In / Providers**（Email）で **Confirm email** をオフにできる（公開アプリでは推奨しない）。確認メールのリンク遷移先の**既定値**は **Site URL**（**Redirect URLs** は許可リスト）。
 
 ---
 
-## 4. デプロイ結果の確認とブランチ運用
+## 6. 本番動作の確認
 
-1. **Deploy** が **Ready** になること（失敗時は **3.4**）。**Production URL**（例: `https://<project>.vercel.app`）を開く。
-2. 環境変数を Import 後に足した・直した場合は **Settings** → **Environment Variables** で編集し **Save** のあと **Deployments** → **Redeploy** する（**Save** は Project 作成後の Settings にある）。
-
-以降、`main` への push / マージで **Production**、PR で **Preview** が自動デプロイされる。
-
-### 4.1 ブランチと環境の対応（デフォルト運用）
-
-| Git の動き | Vercel の環境 | URL の例 |
-|------------|---------------|----------|
-| `main` へ push / マージ | **Production** | `https://<project>.vercel.app` |
-| PR 作成・更新 | **Preview** | `https://<branch>-<hash>.vercel.app` など |
-
-追加の GitHub Actions でデプロイする必要はない（**Git 連携が CD**）。CLI デプロイ（`VERCEL_TOKEN`）は発展課題。
-
----
-
-## 5. 本番動作の確認
-
-1. **8.** の URL 設定を済ませたうえで Production URL を開く。
+1. **5.** の URL 設定（**Site URL** / **Redirect URLs**）を済ませたうえで Production URL を開く。
 2. 未ログインで `/` を開くと `/login` にリダイレクトされる。`/login` でサインアップ → ログインすると `/` に遷移し、見出し **ToDo**・追加フォーム・ログアウトボタンが表示されること。
 3. ToDo が 0 件でも画面（見出し・フォーム）が出れば Auth + RLS + 接続は成功。フォームから 1 件追加して一覧に並び、完了チェックや削除が効くか確認する。
 
-### 5.1 よくある本番だけの失敗
+### 6.1 よくある本番だけの失敗
 
 | 症状 | 確認すること |
 |------|----------------|
-| ビルド失敗「environment variables are not set」（デプロイ時） | **3.4** を参照。 |
+| Production URL が **`404: NOT_FOUND`**（Vercel 標準エラー） | **3.** ステップ 2 の **Framework Preset = Next.js** → **Redeploy** |
+| ビルド失敗「environment variables are not set」（デプロイ時） | **3.** の失敗時表を参照 |
 | 実行時 `Invalid API key` | anon キーのコピーミス、別プロジェクトの URL/キーを混在していないか。 |
-| サインアップ後にログインできない（`Email not confirmed`） | 本番はメール確認が ON（**8.** の注記）。確認メールのリンクを開くか、ダッシュボードで Confirm email をオフにする。 |
+| サインアップ後にログインできない（`Email not confirmed`） | 本番はメール確認が ON（**5.** の注記）。確認メールのリンクを開くか、ダッシュボードで Confirm email をオフにする。 |
+| 確認メールのリンクが **`localhost:3000`** を指す | **5.** の **Site URL** がローカルのまま。**Authentication** → **URL Configuration** で **Site URL** を Production URL（`https://<project>.vercel.app`）に変更 → **Save** → **再度サインアップ**（または確認メール再送）。**Redirect URLs** だけ直してもメール内リンクは変わらないことがある。 |
 | `permission denied` / RLS エラー（`/` が空のまま等） | 未ログイン、またはクラウド DB に `todos` の **RLS ポリシー（フェーズ3の migration）** が未適用。ログイン後も失敗なら **2.** を確認。 |
-| ログイン後も `/login` に戻される | Auth セッションが張れていない。**8.** の Redirect URLs に Production URL があるか、anon キー / URL が正しいか確認。 |
+| ログイン後も `/login` に戻される | Auth セッションが張れていない。**5.** の Redirect URLs に Production URL があるか、anon キー / URL が正しいか確認。 |
 | テーブルなし（`relation "todos" does not exist`） | `supabase db push` 未実行。ダッシュボードで `todos` の有無を確認。 |
 
 ---
 
-## 6. Preview デプロイの確認（PR フロー）
+## 7. Preview デプロイの確認（PR フロー）
 
 CI/CD の「プレビューで確認」を一度体験する。変更内容は **`web/src/app/page.tsx` の見出しを `ToDo` → `ToDo一覧` に変更**する（Preview と本番の差が目視しやすい、最小の可視変更）。
 
-### 6.1 ブランチを切る（開発コンテナ内）
+### 7.1 ブランチを切る（開発コンテナ内）
 
 ```bash
 cd /workspace
@@ -263,7 +283,7 @@ git pull origin main    # リモート main が進んでいる場合
 git checkout -b chore/preview-check
 ```
 
-### 6.2 `page.tsx` を編集して push する
+### 7.2 `page.tsx` を編集して push する
 
 **`web/src/app/page.tsx`** の `<header>` 内の見出しテキストだけを **`ToDo` → `ToDo一覧`** に変更する（フェーズ3 §10 で付けた Tailwind の `className` はそのまま）。
 
@@ -283,15 +303,15 @@ git commit -m "feat: 見出しを ToDo一覧 に変更"
 git push -u origin chore/preview-check
 ```
 
-### 6.3 PR と Preview URL で確認する
+### 7.3 PR と Preview URL で確認する
 
 1. GitHub で **Compare & pull request**（または **New pull request**）→ base: `main`、compare: `chore/preview-check` で PR を作成する。
-2. PR の **Checks** で CI が緑になるのを待つ（赤なら **1.2** / **3.4** を参照）。
+2. PR の **Checks** で CI が緑になるのを待つ（赤なら **1.2** / **3.** を参照）。
 3. PR 画面の Vercel コメント、または Vercel **Deployments** の **Preview** 行から Preview URL を開く。
-4. Preview URL で `/login` → ログイン後、画面の見出しが **ToDo一覧** になっていれば Preview 成功（**8.** の Preview 用 Redirect URL を確認）。
-5. マージせず PR を閉じてもよい（学習のみ）。本番へ載せる場合は **7.** へ。
+4. Preview URL で `/login` → ログイン後、画面の見出しが **ToDo一覧** になっていれば Preview 成功（**5.** の Preview 用 Redirect URL を確認）。
+5. マージせず PR を閉じてもよい（学習のみ）。本番へ載せる場合は **8.** へ。
 
-Preview でも **同じ Supabase プロジェクト**を指すことが多い（**3.3** で Preview にも環境変数を付けたため）。本番 DB を共有するので、テスト用の `insert` など破壊的な操作は控える。
+Preview でも **同じ Supabase プロジェクト**を指す（**3.** で Preview にも環境変数を付けたため）。本番 DB を共有するので、テスト用の `insert` など破壊的な操作は控える。
 
 > **マイグレーションを伴う変更と Preview の注意**
 >
@@ -303,7 +323,7 @@ Preview でも **同じ Supabase プロジェクト**を指すことが多い（
 
 ---
 
-## 7. `main` マージで Production を更新する
+## 8. `main` マージで Production を更新する
 
 1. PR を **Merge** する。
 2. Vercel が自動で Production デプロイを開始する。
@@ -311,42 +331,6 @@ Preview でも **同じ Supabase プロジェクト**を指すことが多い（
 4. Production URL を再度開き、期待どおり表示されることを確認する。
 
 ここまでで README のフェーズ0にある「**`main` にマージすると本番が更新される**」「**PR ではプレビューが出る**」の CD 部分が一通りできる。
-
----
-
-## 8. Supabase Auth の URL 設定（必須）
-
-本アプリは**メールアドレス + パスワード認証**を使う。本番（クラウド）の Supabase は**メール確認（Confirm email）がデフォルトで有効**なため、サインアップ時に**確認メール内のリンク**が送られ、そのリンクの遷移先として Site URL / Redirect URLs を使う。Vercel とローカルの URL を Supabase に登録する。**Import 後、初回デプロイが成功して Production URL が分かってから**行う。
-
-1. Vercel **Deployments** の **Production** URL を控える（例: `https://<project>.vercel.app`）。
-2. Supabase ダッシュボード → **Authentication** → **URL Configuration**。
-3. 次を設定する。
-
-| 項目 | 値（例） |
-|------|----------|
-| **Site URL** | Production URL（`https://<project>.vercel.app`） |
-| **Redirect URLs** | 下記を **1 行ずつ**追加 |
-
-**Redirect URLs に追加する行（学習用の最小セット）:**
-
-```
-http://127.0.0.1:3000/**
-http://localhost:3000/**
-https://<project>.vercel.app/**
-https://*-<project>.vercel.app/**
-```
-
-- `<project>` は Vercel のプロジェクト名（Production ホスト名のサブドメイン部分）。
-- 3 行目は **Production**、4 行目は **PR Preview**（`https://<branch>-<hash>.vercel.app` 形式）向けのワイルドカード。
-- Preview のホスト名が異なる場合は、失敗した Preview URL を **Redirect URLs** に追記して **Save** する。
-
-4. **Save** 後、Production / Preview の両方で **サインアップ → ログイン → ToDo 画面（見出し・追加フォーム）** が表示されることを確認する。未ログインで `/` を開くと `/login` にリダイレクトされるのは想定どおり。
-
-> **ローカルと本番でサインアップ挙動が違う点に注意**
->
-> - **ローカル**（`supabase start`）は `config.toml` で**メール確認をオフ**にしているため、サインアップ直後にそのままログインできる（E2E もこれを前提）。
-> - **本番（クラウド）**は**メール確認がデフォルト ON**。サインアップ後に届く確認メールのリンクを開くまで、`signInWithPassword` は `Email not confirmed` で失敗する。本番で「サインアップしたのにログインできない」場合はメール確認待ちを疑う。
-> - 学習用に本番でも即ログインしたいときは、Supabase ダッシュボード → **Authentication** → **Sign In / Providers**（Email）で **Confirm email** をオフにできる（公開アプリでは推奨しない）。確認メールのリンク遷移先には、上記 **Redirect URLs** が使われる。
 
 ---
 
@@ -395,11 +379,11 @@ https://*-<project>.vercel.app/**
 - [ ] 開発コンテナ内で `web/` の `pnpm run build` が通る。
 - [ ] GitHub Actions に `NEXT_PUBLIC_SUPABASE_*` の repository secret があり、CI の **Build** が緑になる。
 - [ ] クラウド Supabase に `todos` があり、`supabase db push`（または同等）でマイグレーションを反映した。
-- [ ] Vercel で GitHub リポジトリを **Import** し、**Root Directory** を **`web`** にした。
-- [ ] New Project 画面で `NEXT_PUBLIC_SUPABASE_*` を入れ **Deploy** し、**Production** デプロイが成功した。
-- [ ] `main` のデプロイ（Production）が成功し、本番 URL でアプリが開ける。
-- [ ] PR を1本出し、Preview URL で見出しが **ToDo一覧** に変わったことを確認した（**6.**）。
-- [ ] Supabase **URL Configuration** に Production / Preview / ローカルの Redirect URL を登録した（**8.**）。
+- [ ] Vercel **Import**（ステップ 1）→ **Framework Preset = Next.js** + **Redeploy**（ステップ 2）まで完了（**3.**）。
+- [ ] **Production** が **Ready** で **Visit** からアプリが開く（**4.**）。
+- [ ] Supabase **URL Configuration** に Production / Preview / ローカルの Redirect URL を登録した（**5.**）。
+- [ ] Production URL でサインアップ → ログイン → ToDo 画面が表示される（**6.**）。
+- [ ] PR を1本出し、Preview URL で見出しが **ToDo一覧** に変わったことを確認した（**7.**）。
 - [ ] （任意）`main` マージ後に Production が更新されることを Deployments で確認した。
 
 次は **フェーズ6（`phase6-ship-a-change.md`：修正してリリースの一周 ＋ CI の最適化）** に進む。アプリの機能を厚くする作業は、どのフェーズでも並行してよいが、**本番 DB を共有する Preview** では破壊的な変更に注意する。

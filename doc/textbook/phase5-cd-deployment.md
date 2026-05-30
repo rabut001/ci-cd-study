@@ -4,6 +4,7 @@
 
 - `web/` に Next.js アプリがあり、ローカルで `pnpm run lint` / `typecheck` / `test` / `build` が通る。
 - （推奨）`.github/workflows/ci.yml` があり、`main` への push と PR で品質ゲートが走る。
+- （推奨）フェーズ4 §7 でブランチ保護を有効化済み。以降の変更は PR 経由（`main` への直接 push 不可）。
 - フェーズ1で **Vercel アカウント**と **GitHub 連携**（リポジトリへのアクセス許可）まで済んでいる。
 - フェーズ1で Supabase クラウドプロジェクトを作り、**Project URL** と **anon public キー**を控えている。
 - フェーズ3で `supabase/migrations` に `todos` 用 SQL がある（ローカルで `supabase db reset` 済みが望ましい）。
@@ -37,9 +38,14 @@ pnpm run build
 
 ### 1.1 ビルド時の環境変数
 
-`NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` は **ビルド時にも** Next.js が参照する。ローカルでは `web/.env.local` に置く（Git 管理外）。
+`NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` は **ビルド時にも** Next.js が参照する。
 
-本番ビルドの挙動を先に確かめる場合、一時的に次のようにして `build` だけ通すこともできる（値はフェーズ1で控えたもの）。
+| 使う場所 | 入れる値 |
+|----------|----------|
+| **`web/.env.local`**（ローカル開発・E2E） | `http://127.0.0.1:54321` と手元 `supabase status` の Publishable key（フェーズ3 §6） |
+| **GitHub Secret / Vercel 環境変数**（CI Build・デプロイ） | **クラウド Supabase**の Project URL / anon public キー（**1.2** / **3.3**） |
+
+本番ビルドの挙動を先に確かめる場合、一時的に次のように **クラウドの値**で `build` だけ通すこともできる（値はフェーズ1で控えたもの）。
 
 ```bash
 cd /workspace/web
@@ -50,19 +56,32 @@ pnpm run build
 
 - ここで `Supabase environment variables are not set` などが出る場合、Vercel 側の環境変数未設定と同種の失敗になる。**フェーズ5の 3.3** で Vercel に変数を入れるか、上記 export でローカル build を通してから進む。
 
-### 1.2 GitHub Actions 用の環境変数（push の前）
+### 1.2 GitHub Secret とリモート `main` の確認
+
+Vercel の Import は **GitHub 上の `main` の最新コミット**を参照する。フェーズ4 §7 済みのため **`main` への直接 push は不可**（`GH013`）。Secret 登録と `ci.yml` の修正は、必要なら **PR で `main` にマージ**する。
+
+#### Secret を登録する
 
 フェーズ4の CI は最後に `pnpm run build` を実行する。`web/.env.local` は Git に載らないため、**GitHub 側に同じ値を渡さないと Build ステップだけ exit code 1** になる（`Supabase environment variables are not set` など）。
 
 1. GitHub リポジトリ → **Settings** → **Secrets and variables** → **Actions**。
-2. **New repository secret** で次を追加（値は Supabase ダッシュボード → **Project Settings** → **API**。フェーズ1と同じ）。
+2. **New repository secret** で、**クラウド Supabase**（Supabase ダッシュボード → **Project Settings** → **API**。フェーズ1で控えた Project URL / **anon public** キー）を次の名前で登録する。
 
 | Name | Value |
 |------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL（**Data API の API URL**。`/rest/v1/` 等が付いていても `https://<ref>.supabase.co` まで／パスなし） |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public キー |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL（`https://<ref>.supabase.co` まで。`/rest/v1/` 等のパスは付けない） |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **anon public** キー |
 
-3. リポジトリの `.github/workflows/ci.yml` の **Build** ステップに、上記 Secret を渡す記述があること（例）。
+- `anon` キーは公開前提だが、**リポジトリにコミットしない**運用のため Secret でよい。
+- ログに **Node.js 20 actions are deprecated** と出るだけのときは警告。Build 失敗の主因は環境変数未設定のことが多い。
+- **§6.2 で `ci.yml` を push する前**（または PR をマージする前）に登録しておくと、初回 CI の **Build** が通りやすい。
+
+#### `ci.yml` の Build ステップを確認する
+
+`.github/workflows/ci.yml` を開き、`quality` ジョブの **Build** ステップを確認する。
+
+- 既にフェーズ4 §6 と同じ **`env:`**（下記）がある → 修正不要。
+- 無い、または Secret 名が違う → 下記に合わせて**修正**し、続く「リモートへ反映する」で PR に載せる。
 
 ```yaml
       - name: Build
@@ -72,31 +91,36 @@ pnpm run build
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 ```
 
-- `anon` キーは公開前提だが、**リポジトリにコミットしない**運用のため Secret でよい。
-- ログに **Node.js 20 actions are deprecated** と出るだけのときは警告。Build 失敗の主因は環境変数未設定のことが多い。
+#### `main` の状態を確認する
 
-### 1.3 GitHub へ push できる状態
-
-Vercel の Import は **GitHub 上の `main` の最新コミット**を参照する。空リポジトリのままではデプロイ対象がない。
-
-アプリ・マイグレーション（フェーズ3）と `ci.yml`（フェーズ4 §6.2）は**コミット済み**の前提。ここでは **`main` が最新で push 済み**であることを確認し、**1.2 の Secret 登録**を済ませてから先へ進む。開発コンテナ内で状態を確認する（`origin` 未設定はフェーズ2 §5 の `git remote add origin <url>`）。
+開発コンテナ内（`origin` 未設定はフェーズ2 §5 の `git remote add origin <url>`）。PR 用ブランチを切る前に `main` を最新にしておく。
 
 ```bash
 cd /workspace
-git status              # 未コミットの変更が無いこと（あれば下でコミット）
-git branch --show-current
-git remote -v
-
-# まだコミットしていない変更が残っていれば（例: 設定の微修正）コミットする
-git add -A
-git status              # web/.env.local がステージされていないこと
-git commit -m "chore: prepare for Vercel deploy"   # 変更が無ければ不要
-git push -u origin main
+git switch main
+git pull origin main
+git status    # 未コミットの変更（ci.yml 修正など）、origin/main より進んでいないか
 ```
 
-- 直前のフェーズまでで都度コミット・push していれば、ここでの `commit` は不要（`nothing to commit` でよい）。**未 push のコミットを push する**ことが目的。
+- **`git status` が clean** で **`Your branch is up to date with 'origin/main'.`**（`ahead of 'origin/main'` が無い）→ push / PR は**不要**。Actions の CI（とくに **Build**）が緑なら **2.**（Vercel）へ。
+- **変更ファイルがある**、または **`ahead of 'origin/main'`** と出る → 次のとおり PR 経由で反映する（`main` 上で commit してから push しない）。
+
+```bash
+git switch -c chore/ci-supabase-env   # 上記 pull 済みの main から
+# ci.yml を修正したら:
+git add .github/workflows/ci.yml
+git status                   # web/.env.local がステージされていないこと
+git commit -m "ci: pass Supabase secrets to build step"
+
+git push -u origin chore/ci-supabase-env
+```
+
+1. GitHub で **Pull request** を作成（base: `main`、compare: `chore/ci-supabase-env`）。
+2. **Checks** で `quality` と `e2e` が緑になるまで待つ（Secret 未登録なら上で登録して PR に再 push）。
+3. PR を **Merge** する。
+
 - `web/.env.local` はコミットしない（`.gitignore` で除外されている想定）。
-- push 後、**Actions** の CI（とくに **Build**）が緑になってから **3.** 以降の Vercel 登録に進む。
+- リモート `main` が最新で CI が緑になっていることを確認してから **2.** 以降の Vercel 登録に進む。
 
 ---
 
@@ -142,7 +166,7 @@ GitHub リポジトリを Vercel に Import し、Project を作成する。
 リポジトリを選ぶと、**同じ画面**でビルド設定・環境変数を入れ、最後に **Deploy** で Project 作成と初回デプロイが始まる（この画面に **Save** ボタンは無い）。
 
 1. [Vercel Dashboard](https://vercel.com/dashboard) → **Add New…** → **Project**。
-2. **Import Git Repository** で、**1.3** で push 済みの学習用リポジトリを選ぶ（一覧に無い場合は **Adjust GitHub App Permissions** でリポジトリを追加）。
+2. **Import Git Repository** で、**1.2** で `main` が最新になっている学習用リポジトリを選ぶ（一覧に無い場合は **Adjust GitHub App Permissions** でリポジトリを追加）。
 3. フレームワークは **Next.js** と検出されればそのまま進む。
 4. 下記 **3.2** のビルド設定と **3.3** の環境変数を済ませる。
 5. 画面下部の **Deploy** を押す（表示が **Deployment** に近い表記でも、初回デプロイを開始するボタンとして扱う）。失敗したら **3.4**。
@@ -163,9 +187,14 @@ New Project 画面の **Configure Project** で、リポジトリルートの `w
 
 同じ New Project 画面の **Environment Variables**（または **Add**）で、**Deploy を押す前**に次を入れる。
 
-| Key | Value | 適用先 |
+> **入れる値はクラウド Supabase（本番プロジェクト）**
+>
+> - **Production / Preview 用**：フェーズ1で控えた **Supabase ダッシュボード**の Project URL / **anon public** キー（`1.2` の GitHub Secret と**同じクラウドの値**でよい）。
+> - **ローカル開発用ではない**：`http://127.0.0.1:54321` や手元 `supabase start` のキーは **`web/.env.local` のみ**に置く。Vercel にローカル値を入れると、デプロイ先から Supabase に接続できない。
+
+| Key | Value（クラウド Supabase） | 適用先 |
 |-----|--------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase の Project URL（`/rest/v1/` は付けない） | **Production** と **Preview** |
+| `NEXT_PUBLIC_SUPABASE_URL` | ダッシュボードの Project URL（`/rest/v1/` は付けない） | **Production** と **Preview** |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **anon public** キー | **Production** と **Preview** |
 
 - **service_role** は入れない。Database の接続 URI も不要。
@@ -276,7 +305,7 @@ Preview でも **同じ Supabase プロジェクト**を指すことが多い（
 
 ## 7. `main` マージで Production を更新する
 
-1. PR を **Merge** する（または `main` に直接 push する運用なら push）。
+1. PR を **Merge** する。
 2. Vercel が自動で Production デプロイを開始する。
 3. **Deployments** で **Production** が **Ready** になるまで待つ。
 4. Production URL を再度開き、期待どおり表示されることを確認する。

@@ -216,9 +216,9 @@ git commit -m "test: add vitest and unit tests"
 
 ## 5. E2E（Playwright）をローカルで回す（任意 / 主要導線スモーク）
 
-ユニットテストは「部品」を速く守るもの。対して E2E は「**実際の画面 → Supabase（Auth + REST + RLS）**」までを通しで確認する。ここでは **方式A（ローカル / CI ランナー内に Supabase を立てて、その DB に対して実行）** で、主要導線のスモークを 1 本だけ用意する。
+ユニットテストは「部品」を速く守るもの。対して E2E は「**実際の画面 → Supabase（Auth + REST + RLS）**」までを通しで確認する。ここでは **`supabase start` でローカル（または CI ランナー内）に Supabase を立て、その DB に対して** E2E する。別途 staging を用意せず、主要導線のスモークを 1 本だけ用意する（README 等では **方式A** と呼ぶ）。
 
-> **方式Aとは**：別途 staging を用意せず、`supabase start` でローカル（または CI ランナー内）に Supabase 一式を起動し、その DB に **その時点の `supabase/migrations`** を当ててからテストする。コードとスキーマが常に一致するため、**マイグレーションを伴う変更も同じブランチ内で検証**できる。
+> **この構成の要点**：`supabase start` 起動時に **その時点の `supabase/migrations`** が DB に当たる。コードとスキーマが常に一致するため、**マイグレーションを伴う変更も同じブランチ内で検証**できる。
 
 ### 5.1 Playwright を導入する（`web/` で実行）
 
@@ -226,17 +226,6 @@ git commit -m "test: add vitest and unit tests"
 cd /workspace/web
 pnpm add -D @playwright/test
 pnpm exec playwright install --with-deps chromium
-```
-
-- アプリ起動用に `web/package.json` に `start` を足し、E2E 実行用に `e2e` を足す。
-
-```json
-{
-  "scripts": {
-    "start": "next start -H 127.0.0.1 -p 3000",
-    "e2e": "playwright test"
-  }
-}
 ```
 
 ### 5.2 `web/playwright.config.ts` を作成
@@ -340,7 +329,9 @@ pnpm run e2e
 - `.env.local` がローカル値（`http://127.0.0.1:54321` と `supabase status` の Publishable key）になっていること。
 - `1 passed` になればスモーク成功。
 
-### 5.6 方式Aで理解しておくべき制限
+### 5.6 ローカル Supabase 向け E2E の制限（押さえておくこと）
+
+§5 冒頭のとおり、E2E の接続先は **`supabase start` で立てた Supabase**（手元の開発環境や CI ランナー内）である。別途 staging やクラウドの検証用 DB を用意しないこの構成では、次の点に注意する。
 
 - **本番そのものではない**：接続先は CLI が立てる**ローカル Supabase** であり、**ダッシュボードでしか設定しない項目**（本番 Redirect URL、SMTP、メール確認 ON/OFF、レート制限）や **Vercel 固有の挙動**は検証できない。`config.toml` と本番設定の乖離（config drift）に注意する。本番に近い確認はフェーズ5の Preview スモークで補う。
 - **データは空**：テスト内でサインアップ・追加など**前提状態を自前で作る**。メールは run ごとにユニークにし、並列時は**ユーザ単位で分離**（RLS により他人の行は見えない）。

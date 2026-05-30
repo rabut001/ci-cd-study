@@ -1,0 +1,15 @@
+services:
+  ci-cd-study:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    network_mode: host
+    environment:
+      - NODE_ENV=development
+    stdin_open: true
+    tty: true
+    command: sleep infinity

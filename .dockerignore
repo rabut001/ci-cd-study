@@ -1,0 +1,28 @@
+# Git
+.git
+
+# 秘密情報（§5.1 と同系）
+.env
+.env.*
+*.local
+
+# Node / Next.js（フェーズ3以降。web/ 配下）
+**/node_modules
+**/.next
+**/out
+
+# pnpm（§5.1）
+.pnpm-store
+
+# Supabase ローカル（§4。config.toml / migrations は除外しない）
+supabase/.temp
+supabase/.branches
+
+# Playwright（フェーズ4。web/ 配下）
+**/test-results
+**/playwright-report
+**/blob-report
+
+# エディタ・OS
+.cursor
+.DS_Store

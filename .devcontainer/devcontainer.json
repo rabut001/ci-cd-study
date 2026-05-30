@@ -1,0 +1,19 @@
+{
+    "name": "ci-cd-study",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ci-cd-study",
+    "workspaceFolder": "/workspace",
+    "postCreateCommand": "bash -lc 'if [ -f web/package.json ]; then cd web && pnpm install && pnpm exec playwright install chromium; fi'",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "dbaeumer.vscode-eslint",
+          "esbenp.prettier-vscode"
+        ],
+        "settings": {
+          "remote.autoForwardPorts": false,
+          "remote.restoreForwardedPorts": false
+        }
+      }
+    }
+  }

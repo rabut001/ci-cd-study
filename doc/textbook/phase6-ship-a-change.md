@@ -60,7 +60,7 @@ supabase db reset
 
 ## 3. フロントエンドを実装する（最小）
 
-`web/src/app/page.tsx` に `due_date` の**入力**と**表示**を足す。差分は次の 4 点。
+フェーズ3 §10 の **`web/src/app/page.tsx`**（Tailwind 付き）を前提に、`due_date` の**入力**と**表示**を足す。差分は次の 4 点。
 
 ### 3.1 型と取得列に `due_date` を加える
 
@@ -85,6 +85,8 @@ type Todo = {
 
 ### 3.2 入力用の state と、追加時の値を加える
 
+既存の `title` state の直下に `dueDate` を足す。
+
 ```tsx
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -104,37 +106,53 @@ type Todo = {
 
 ### 3.3 フォームに日付入力を足す
 
+既存フォームの `className`（`mb-6 flex gap-2`）は維持し、**`inputClassName` / `primaryButtonClassName`**（フェーズ3 §10 で定義済み）をそのまま使う。
+
 ```tsx
-      <form onSubmit={addTodo}>
+      <form className="mb-6 flex flex-wrap gap-2" onSubmit={addTodo}>
         <input
+          className={inputClassName}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="やること"
           aria-label="やること"
         />
         <input
+          className={inputClassName}
           type="date"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
           aria-label="期限"
         />
-        <button type="submit">追加</button>
+        <button type="submit" className={primaryButtonClassName}>
+          追加
+        </button>
       </form>
 ```
 
 ### 3.4 一覧に期限を表示する
 
+既存の `<li className="flex items-center ...">` 内、`TodoItem` と削除ボタンの間に期限表示を足す。
+
 ```tsx
-          <li key={todo.id}>
+          <li
+            key={todo.id}
+            className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900"
+          >
             <TodoItem
               id={todo.id}
               title={todo.title}
               isDone={todo.is_done}
               onToggle={toggle}
             />
-            {todo.due_date && <span>（期限: {todo.due_date}）</span>}
+            {todo.due_date && (
+              <span className="shrink-0 text-sm text-neutral-600 dark:text-neutral-400">
+                （期限: {todo.due_date}）
+              </span>
+            )}
             <button
               type="button"
+              className="shrink-0 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
               onClick={() => remove(todo.id)}
               aria-label={`${todo.title} を削除`}
             >

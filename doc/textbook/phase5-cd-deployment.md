@@ -236,13 +236,13 @@ git checkout -b chore/preview-check
 
 ### 6.2 `page.tsx` を編集して push する
 
-**`web/src/app/page.tsx`** の見出し 1 行を **`ToDo` → `ToDo一覧`** に変更するだけでよい。
+**`web/src/app/page.tsx`** の `<header>` 内の見出しテキストだけを **`ToDo` → `ToDo一覧`** に変更する（フェーズ3 §10 で付けた Tailwind の `className` はそのまま）。
 
 ```tsx
-      <h1>ToDo一覧</h1>
+        <h1 className="text-2xl font-semibold">ToDo一覧</h1>
 ```
 
-- 変更前は `<h1>ToDo</h1>`。ロジックや他の要素（追加フォーム・一覧・ログアウト）は触らない。
+- 変更前は `<h1 className="text-2xl font-semibold">ToDo</h1>`。ロジックや他の要素（追加フォーム・一覧・ログアウト）は触らない。
 - E2E スモークの見出しチェックは部分一致（`name: "ToDo"`）なので、`ToDo一覧` でもそのまま通る。
 
 コミットしてリモートへ push する。

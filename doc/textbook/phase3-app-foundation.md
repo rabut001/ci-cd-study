@@ -24,7 +24,7 @@
 > - **サーバー側の API は実装しない**。データ操作は **Supabase の Auto-generated REST API**（`@supabase/supabase-js` 経由）に任せ、**フロントエンドだけ**を実装する。
 > - **認証は Supabase Auth（メール / パスワード）** に任せる。`@supabase/ssr` や Next.js の Middleware / サーバークライアントは使わず、**ブラウザクライアントのみ**でセッションを保持する（コードを最小・単純に保つため）。
 > - **ToDo は登録したユーザだけが参照・更新・削除できる**。この制御は **Supabase の RLS（`auth.uid() = user_id`）** に任せる。
-> - **ToDo はタイトルと完了済みフラグの 2 つだけ**を持つ最小構成にする。スタイルも最小限とし、コードのシンプルさを最優先する。
+> - **ToDo はタイトルと完了済みフラグの 2 つだけ**を持つ最小構成にする。**Tailwind CSS**（`create-next-app` 同梱）でボタン・入力・レイアウトに**最低限の見た目**だけ当て、装飾の作り込みは行わない。
 
 ---
 
@@ -33,14 +33,18 @@
 以降のコマンドは原則、**開発コンテナ内**で実行する。
 
 ```bash
-mkdir -p /workspace/web
 cd /workspace/web
+# フェーズ2で置いた .nvmrc / .env.local は create-next-app と衝突するため一時退避
+test -f .nvmrc && mv .nvmrc ../.nvmrc.phase2.bak
+test -f .env.local && mv .env.local ../.env.local.phase2.bak
 pnpm create next-app@latest . --ts --app --eslint --src-dir --import-alias "@/*"
+mv ../.nvmrc.phase2.bak .nvmrc
+mv ../.env.local.phase2.bak .env.local
 ```
 
 ### 1.1 `create-next-app` 実行時の注意
 
-- `web` は**空に近い状態**で実行する（空でない場合は上書き確認が出るので、内容を確認して進める）。
+- フェーズ2 では **`web/.nvmrc`** と空の **`web/.env.local`** を先に置いている。`create-next-app` はこれらを「衝突ファイル」とみなして中断するため、**上記のとおり一時退避 → 生成 → 戻す**。
 - `create-next-app` が Git 初期化を聞いてきた場合、リポジトリルートを `/workspace` で管理するなら **No** とし、`web` の中で `git init` だけが残らないようにする。
 - `Turbopack` の有効化は好みでよい（学習用途なら既定値で問題ない）。
 - 生成直後に `pnpm install` は通常完了済みだが、必要なら `pnpm install` を再実行する。
@@ -114,7 +118,7 @@ yarn-error.log*
 next-env.d.ts
 ```
 
-- **`.env*` が含まれる**ので、§6 で作る **`web/.env.local` は Git に載らない**（重要）。
+- **`.env*` が含まれる**ので、フェーズ2 §5.3 で置いた空の **`web/.env.local`** も Git に載らない（§6 で値を入れる）。
 - `node_modules` / `.next/` / ビルド成果物 / ログ / `next-env.d.ts` などもここで除外される。
 - **Playwright を入れる際の追記（`/test-results/` など）は、フェーズ4 §5.4 で行う**（このフェーズではまだ不要）。
 
@@ -126,7 +130,7 @@ next-env.d.ts
 cat /workspace/.gitignore   # .env* / *.local が含まれていること
 ```
 
-- **まだ無い場合は、先にフェーズ2 §5.1 の内容で作成**してから先に進む（`web/.env.local` を作る §6 より前に置くことが重要）。
+- **ルート `.gitignore` がまだ無い場合は、先にフェーズ2 §5.1 の内容で作成**してから先に進む。`web/.env.local` はフェーズ2 §5.3 で空ファイルを置いている前提（未作成なら同様に空でよい）。
 - **役割分担**：`web/` の依存・ビルド・テスト成果物は **2.1 の `web/.gitignore`** が担当し、ルートには重複して書かない。`web/` の外にだけ現れるツール生成物が増えたときだけ、ルートに追記する。
 
 ---
@@ -185,22 +189,20 @@ pnpm add @supabase/supabase-js
 
 ## 6. 環境変数を定義する（`.env.local`）
 
-Next.js はプロジェクトルートの環境ファイルを読むため、**`web/.env.local`** を作成または更新する。
+Next.js はプロジェクトルートの環境ファイルを読むため、フェーズ2 §5.3 で置いた **`web/.env.local`** に値を書く。
+
+1. ローカル Supabase が起動していることを確認する（未起動なら `supabase start`）。
+2. リポジトリルート（`/workspace`）で `supabase status` を実行する。
+3. 表示された **Project URL** と **Publishable key** をコピーし、`web/.env.local` に設定する。
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-public-key>
-```
-
-- `.env.local` は Git にコミットしない。
-- 値は Supabase ダッシュボードの Project Settings -> API（または Data API の API URL）で確認する。URL に `/rest/v1/` が付いていても `https://<ref>.supabase.co` まで（パスなし）を指定する。
-- **ローカル（Supabase CLI）で開発・動作確認する場合**は、`supabase start` 後に `supabase status` が表示する **Project URL（例: `http://127.0.0.1:54321`）** と **Publishable key**（`anon` 相当）を使う。本フェーズの動作確認（§9・§10）はこのローカル値で進める。
-
-```bash
-# 例：ローカル CLI 開発時の web/.env.local
+# web/.env.local の例（値は supabase status の表示に合わせる）
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase status の Publishable key>
 ```
+
+- `.env.local` は Git にコミットしない。
+- 本フェーズの動作確認（§9・§10）はこのローカル値で進める。クラウド（本番）の URL / キーは **フェーズ5** で Vercel の環境変数として設定する。
 
 ---
 
@@ -227,7 +229,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 ### 7.2 ToDo 1 行分の表示コンポーネント `src/components/TodoItem.tsx`
 
-一覧の各行（チェックボックス + タイトル）を小さな表示専用コンポーネントに分けておく。`page.tsx` から使い、フェーズ4ではこのコンポーネントに**単体テスト**を足す。
+一覧の各行（チェックボックス + タイトル）を小さな表示専用コンポーネントに分けておく。`page.tsx` から使い、フェーズ4ではこのコンポーネントに**単体テスト**を足す。完了時は取り消し線を付ける。
 
 ```tsx
 type TodoItemProps = {
@@ -239,14 +241,23 @@ type TodoItemProps = {
 
 export function TodoItem({ id, title, isDone, onToggle }: TodoItemProps) {
   return (
-    <label>
+    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
       <input
         type="checkbox"
+        className="h-4 w-4 shrink-0 accent-blue-600"
         checked={isDone}
         aria-label={`${title} の完了状態`}
         onChange={(e) => onToggle(id, e.currentTarget.checked)}
       />
-      <span>{title}</span>
+      <span
+        className={
+          isDone
+            ? "text-neutral-500 line-through dark:text-neutral-400"
+            : "break-words"
+        }
+      >
+        {title}
+      </span>
     </label>
   );
 }
@@ -254,7 +265,7 @@ export function TodoItem({ id, title, isDone, onToggle }: TodoItemProps) {
 
 ### 7.3 ログイン / サインアップ画面 `src/app/login/page.tsx`
 
-最小のメール / パスワードフォームを置く（Client Component）。ログイン成功後は `useRouter().replace("/")` で一覧へ遷移する。
+最小のメール / パスワードフォームを置く（Client Component）。ログイン成功後は `useRouter().replace("/")` で一覧へ遷移する。**Tailwind の `className`** で入力欄・ボタン・レイアウトに最低限の見た目を当てる（プレーン HTML のままだとボタンが判別しづらい）。
 
 ```tsx
 "use client";
@@ -262,6 +273,9 @@ export function TodoItem({ id, title, isDone, onToggle }: TodoItemProps) {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+
+const inputClassName =
+  "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-base dark:border-neutral-600 dark:bg-neutral-800";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -284,24 +298,46 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
-      <h1>ログイン</h1>
-      <input
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="email"
-        aria-label="email"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="password"
-        aria-label="password"
-      />
-      <button type="button" onClick={signIn}>ログイン</button>
-      <button type="button" onClick={signUp}>サインアップ</button>
-      {message && <p>{message}</p>}
+    <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-4 p-6">
+      <h1 className="text-2xl font-semibold">ログイン</h1>
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900">
+        <input
+          className={inputClassName}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="email"
+          aria-label="email"
+        />
+        <input
+          className={inputClassName}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="password"
+          aria-label="password"
+        />
+        <div className="flex gap-2 pt-1">
+          <button
+            type="button"
+            className="flex-1 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
+            onClick={signIn}
+          >
+            ログイン
+          </button>
+          <button
+            type="button"
+            className="flex-1 rounded-md border border-neutral-300 bg-white px-4 py-2 font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+            onClick={signUp}
+          >
+            サインアップ
+          </button>
+        </div>
+      </div>
+      {message && (
+        <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
+          {message}
+        </p>
+      )}
     </main>
   );
 }
@@ -376,7 +412,7 @@ supabase status
 
 ## 10. ToDo 画面（一覧・追加・完了・削除）
 
-`src/app/page.tsx` を **Client Component** にする。マウント時に `getUser()` でログイン状態を確認し、未ログインなら `/login` へ誘導する。一覧の読み書きはすべてブラウザクライアントから Supabase の REST API を呼ぶだけで、所有者以外の行は RLS が自動的に弾く（`user_id` は DB の `default auth.uid()` に任せる）。
+`src/app/page.tsx` を **Client Component** にする。マウント時に `getUser()` でログイン状態を確認し、未ログインなら `/login` へ誘導する。一覧の読み書きはすべてブラウザクライアントから Supabase の REST API を呼ぶだけで、所有者以外の行は RLS が自動的に弾く（`user_id` は DB の `default auth.uid()` に任せる）。ログイン画面と同様、**Tailwind の `className`** で最低限のレイアウトとボタンスタイルを当てる。
 
 ```tsx
 "use client";
@@ -391,6 +427,15 @@ type Todo = {
   title: string;
   is_done: boolean;
 };
+
+const inputClassName =
+  "min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-base dark:border-neutral-600 dark:bg-neutral-800";
+
+const primaryButtonClassName =
+  "rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700";
+
+const secondaryButtonClassName =
+  "rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700";
 
 export default function Page() {
   const router = useRouter();
@@ -443,30 +488,40 @@ export default function Page() {
 
   if (loading) {
     return (
-      <main>
-        <p>読み込み中...</p>
+      <main className="mx-auto max-w-lg p-6">
+        <p className="text-neutral-600 dark:text-neutral-400">読み込み中...</p>
       </main>
     );
   }
 
   return (
-    <main>
-      <h1>ToDo</h1>
-      <button type="button" onClick={signOut}>
-        ログアウト
-      </button>
-      <form onSubmit={addTodo}>
+    <main className="mx-auto max-w-lg p-6">
+      <header className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">ToDo</h1>
+        <button type="button" className={secondaryButtonClassName} onClick={signOut}>
+          ログアウト
+        </button>
+      </header>
+
+      <form className="mb-6 flex gap-2" onSubmit={addTodo}>
         <input
+          className={inputClassName}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="やること"
           aria-label="やること"
         />
-        <button type="submit">追加</button>
+        <button type="submit" className={primaryButtonClassName}>
+          追加
+        </button>
       </form>
-      <ul>
+
+      <ul className="flex flex-col gap-2">
         {todos.map((todo) => (
-          <li key={todo.id}>
+          <li
+            key={todo.id}
+            className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900"
+          >
             <TodoItem
               id={todo.id}
               title={todo.title}
@@ -475,6 +530,7 @@ export default function Page() {
             />
             <button
               type="button"
+              className="shrink-0 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
               onClick={() => remove(todo.id)}
               aria-label={`${todo.title} を削除`}
             >
@@ -488,11 +544,23 @@ export default function Page() {
 }
 ```
 
-### 10.1 確認手順
+### 10.1 （任意）`src/app/layout.tsx` の調整
+
+`create-next-app` が生成した **`src/app/layout.tsx`** で、次を変更しておく。
+
+- `<html lang="en">` → **`lang="ja"`**
+- `metadata.title` を **`ToDo`**、`description` を学習用の説明に変更
+
+---
+
+### 10.2 確認手順
 
 1. **開発サーバーを起動し、サインアップ → ログインする。**
 
-   1. **開発コンテナ内**・**`web` ディレクトリ**で開発サーバーを起動する。
+   1. **起動前の確認**（**開発コンテナ内**・カレント **`/workspace/web`**）:
+      - **§9 の `supabase start` でローカル Supabase が動いていること**（未起動なら `/workspace` で `supabase start`）。
+      - **`web/.env.local`** がローカル値（`http://127.0.0.1:54321` と `supabase status` の Publishable key）になっていること（未設定だと画面表示時に「Supabase environment variables are not set」で落ちる）。
+   2. 開発サーバーを起動する。
 
       ```bash
       cd /workspace/web
@@ -500,24 +568,22 @@ export default function Page() {
       ```
 
       - 起動ログに `Local: http://127.0.0.1:3000` が出ることを確認する（`dev` は `127.0.0.1` バインド）。
-      - 起動前に **§9 の `supabase start` でローカル Supabase が動いていること**、`web/.env.local` がローカル値（`http://127.0.0.1:54321` と `supabase status` の Publishable key）になっていることを確認する（未設定だと画面表示時に「Supabase environment variables are not set」で落ちる）。
-   2. ブラウザで **`http://127.0.0.1:3000/login`** を開く。
-   3. **サインアップ**: `email`（例: `test@example.com`）と `password`（6 文字以上）を入力し、**サインアップ** ボタンを押す。`サインアップしました。ログインしてください` と表示されれば登録成功。
+   3. ブラウザで **`http://127.0.0.1:3000/login`** を開く。
+   4. **サインアップ**: `email`（例: `test@example.com`）と `password`（6 文字以上）を入力し、**サインアップ** ボタンを押す。`サインアップしました。ログインしてください` と表示されれば登録成功。
       - ローカルは `config.toml` の `enable_confirmations = false`（メール確認オフ）なので、**確認メールのリンクを開かずにそのままログインへ進める**。
-      - メール送信を伴う設定を試している場合は、送信内容を **Mailpit（`http://127.0.0.1:54324`）** で確認できる。
-   4. **ログイン**: 同じ `email` / `password` のまま **ログイン** ボタンを押す。成功すると `useRouter().replace("/")` で **`/`（ToDo 画面）へ自動遷移**する。失敗時はフォーム下にエラーメッセージが出るので、文言に従って入力やユーザ登録を見直す。
+   5. **ログイン**: 同じ `email` / `password` のまま **ログイン** ボタンを押す。成功すると `useRouter().replace("/")` で **`/`（ToDo 画面）へ自動遷移**する。失敗時はフォーム下にエラーメッセージが出るので、文言に従って入力やユーザ登録を見直す。
 2. `/` に遷移したら、入力欄に文字を入れて **追加** → 一覧に出る。チェックで完了状態が切り替わり、**削除** で消える。
 3. **ログアウト**すると `/login` に戻り、未ログインで `/` を開くと `/login` に誘導されれば Auth + RLS + 接続は成功。
 4. （任意）所有者制御の確認は、別メールでもう 1 ユーザ作り、互いの ToDo が見えないことを確かめる。
 
-### 10.2 よくある失敗ポイント
+### 10.3 よくある失敗ポイント
 
 - 未ログインのまま `/` を開く → `router.replace("/login")` で誘導される（正常）。
 - `.env.local` の URL / anon キーが誤っている（ローカルは `supabase status` の Project URL / Publishable key）。
 - `supabase db reset` 未実行、または **anon 向けの全許可ポリシー**のまま（本手順書の SQL を再適用する）。
 - ログインしているのに行が増えない / `permission denied` → ポリシーの `auth.uid() = user_id` と、`user_id` の `default auth.uid()` を確認する。
 
-スタイルの作り込みはフェーズ4以降に回し、ここでは動作優先で最小限にとどめる。
+スタイルは §7・§10 のとおり最低限にとどめ、デザインの作り込みはフェーズ4以降に回してよい。
 
 ---
 
@@ -552,7 +618,7 @@ git push -u origin main
 
 - [ ] 開発コンテナ内で **`web` で** `pnpm run dev` が通り、`http://127.0.0.1:3000` で表示できる。
 - [ ] **`web/package.json`** の `dev` が `next dev -H 127.0.0.1` になっている。
-- [ ] `@supabase/supabase-js` を導入し、`src/lib/supabase/client.ts`（ブラウザクライアント）/ `src/components/TodoItem.tsx` / `src/app/login/page.tsx` / `src/app/page.tsx` を置いた（`@supabase/ssr` や Middleware は使わない）。
+- [ ] `@supabase/supabase-js` を導入し、`src/lib/supabase/client.ts`（ブラウザクライアント）/ `src/components/TodoItem.tsx` / `src/app/login/page.tsx` / `src/app/page.tsx` を置いた（Tailwind で最低限のスタイル、`layout.tsx` は `lang="ja"` と title 調整。`@supabase/ssr` や Middleware は使わない）。
 - [ ] `.env.local` に `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を設定した（Git 管理外）。
 - [ ] `supabase/migrations` に `user_id` 付き `todos` と **authenticated 向け RLS** があり、`supabase db reset` で適用できる。
 - [ ] `/login` でサインアップ・ログイン後、`/` で ToDo を追加・完了切り替え・削除でき、ログアウトできる。

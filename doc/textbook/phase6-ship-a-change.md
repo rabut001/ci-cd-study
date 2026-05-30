@@ -3,7 +3,7 @@
 **前提（フェーズ1〜5まで完了していること）**
 
 - ローカルで `supabase start` / `pnpm run dev` が動き、`lint` / `typecheck` / `test` / `e2e` が通る。
-- `.github/workflows/ci.yml` に `quality` と `e2e`（方式A）があり、PR で必須ゲートになっている（フェーズ4）。
+- `.github/workflows/ci.yml` に `quality` と `e2e` があり、PR で必須ゲートになっている（フェーズ4）。`e2e` は CI ランナー内で `supabase start` し、PR の migration を当てた DB に向けて Playwright を実行する。
 - Vercel の Production / Preview が動き、クラウド Supabase に `todos` が載っている（フェーズ5）。
 
 **レイアウトの前提**
@@ -13,7 +13,7 @@
 **このフェーズのゴール**
 
 - **1 つの機能変更**（`todos` に期限 `due_date` を追加）を、**ブランチ → マイグレーション → 実装 → テスト更新 → ローカル確認 → PR → CI → Preview → マージ → 本番反映 → タグ付け**まで通す。
-- **マイグレーションを伴う変更**が、方式Aの CI（ランナー内 Supabase に PR の migration を当てて E2E）で**自動検証**されることを体感する。
+- **マイグレーションを伴う変更**が、**CI の `e2e` ジョブ**（ランナー内 Supabase に PR の migration を当てて E2E）で**自動検証**されることを体感する。
 - 一周を見届けたうえで、**CI を速く・安定・安全に「育てる」**（§10）。
 
 > 題材は「期限 `due_date`（日付のみ）の追加」。**NULL 許容の列追加**なので前方互換で、安全にリリースの練習ができる。CI / CD の整理・最適化（キャッシュ、同時実行制御、夜間 E2E など）は、実際に一周を見てから §10 でまとめて行う。
@@ -29,7 +29,7 @@ cd /workspace
 git switch -c feat/todo-due-date
 ```
 
-- 変更は「**スキーマ（migration）＋アプリ＋テスト**」をまとめて 1 つの PR にする。スキーマとコードが同じ PR にあることで、方式Aの CI が両者の整合を一度に検証できる。
+- 変更は「**スキーマ（migration）＋アプリ＋テスト**」をまとめて 1 つの PR にする。スキーマとコードが同じ PR にあることで、**CI の `e2e` ジョブ**が両者の整合を一度に検証できる。
 
 ---
 
@@ -222,7 +222,7 @@ git push -u origin feat/todo-due-date
 GitHub で **Pull request** を作成（base: `main`）。
 
 - PR で **`ci.yml` が起動**する。`quality` の後に `e2e` が走り、**`e2e` はランナー内 Supabase に「今回の migration を含む全マイグレーション」を当てた DB**に対して実行される。
-- つまり「**列を追加するコード**」と「**列を追加する migration**」が**同じ PR の中で噛み合っているか**を CI が自動で確かめる。ここが方式Aの利点。
+- つまり「**列を追加するコード**」と「**列を追加する migration**」が**同じ PR の中で噛み合っているか**を CI が自動で確かめる。ここが **ランナー内 Supabase 向け E2E**（フェーズ4 §5・§6）の利点。
 - もし migration を入れ忘れてコードだけ変えていたら、`e2e` は `column "due_date" does not exist` 系で**落ちる**（=事故を PR で止められる）。
 
 ---
@@ -243,7 +243,7 @@ supabase db push
 - 共有 Supabase に当てると、他の Preview や `main` 用デプロイにも同じ列が見える点に留意する。**PR ごとに隔離したい場合は Supabase Branching（Pro・有料）**が必要（フェーズ5 §6.3）。
 - Preview URL でログイン → 期限を入れて追加 → 一覧に「期限: …」が出れば OK。
 
-> スキーマ整合の**自動ゲート**は §6 の方式A E2E が担う。Preview は**人による UI 目視確認**と割り切ると、無料運用のまま安全に回せる。
+> スキーマ整合の**自動ゲート**は §6 の **`e2e` ジョブ**が担う。Preview は**人による UI 目視確認**と割り切ると、無料運用のまま安全に回せる。
 
 ---
 

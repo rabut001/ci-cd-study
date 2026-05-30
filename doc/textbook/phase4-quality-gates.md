@@ -216,7 +216,7 @@ git commit -m "test: add vitest and unit tests"
 
 ## 5. E2E（Playwright）をローカルで回す（任意 / 主要導線スモーク）
 
-ユニットテストは「部品」を速く守るもの。対して E2E は「**実際の画面 → Supabase（Auth + REST + RLS）**」までを通しで確認する。ここでは **`supabase start` でローカル（または CI ランナー内）に Supabase を立て、その DB に対して** E2E する。別途 staging を用意せず、主要導線のスモークを 1 本だけ用意する（README 等では **方式A** と呼ぶ）。
+ユニットテストは「部品」を速く守るもの。対して E2E は「**実際の画面 → Supabase（Auth + REST + RLS）**」までを通しで確認する。ここでは **`supabase start` でローカル（または CI ランナー内）に Supabase を立て、その DB に対して** E2E する。別途 staging を用意せず、主要導線のスモークを 1 本だけ用意する。
 
 > **この構成の要点**：`supabase start` 起動時に **その時点の `supabase/migrations`** が DB に当たる。コードとスキーマが常に一致するため、**マイグレーションを伴う変更も同じブランチ内で検証**できる。
 
@@ -357,7 +357,7 @@ git commit -m "test: add playwright e2e smoke"
 リポジトリルートに `.github/workflows/ci.yml` を作成する。**2 つのジョブ**を持たせる。
 
 - `quality`：`lint` / `typecheck` / `test`（ユニット）/ `build`。安く速い。`web/` で実行する。
-- `e2e`：**方式A**で Playwright スモークを回す（`needs: quality` で、安いチェックが緑のときだけ実行）。`supabase` 系はリポジトリルートで、`web` 系は `web/` で実行する。
+- `e2e`：§5 と同様、**ランナー内で `supabase start` して PR の migration を当てた DB** に向けて Playwright スモークを回す（`needs: quality` で、安いチェックが緑のときだけ実行）。`supabase` 系はリポジトリルートで、`web` 系は `web/` で実行する。
 
 ```yaml
 name: CI
@@ -408,7 +408,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-  # 方式A：ランナー内に Supabase を起動し、PR の migration を当てた DB に対して
+  # ランナー内に Supabase を起動し、PR の migration を当てた DB に対して
   # Playwright スモーク（主要導線 1 本）を回す。quality が緑のときだけ実行する。
   e2e:
     needs: quality
@@ -543,7 +543,7 @@ GitHub の対象リポジトリで次を設定する。
 - [ ] ローカルで `pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build` が通る。
 - [ ] ローカルで `supabase start` ＋ `pnpm run e2e` のスモークが通る。
 - [ ] ユニット（**4.1**）・E2E（**5.7**）・`ci.yml`（**6.2**）を区切りごとにコミットし、push した。
-- [ ] `.github/workflows/ci.yml` に `quality` と `e2e`（方式A）があり、PR と `main` で走る。
+- [ ] `.github/workflows/ci.yml` に `quality` と `e2e`（ランナー内 Supabase 向け）があり、PR と `main` で走る。
 - [ ] （推奨）`main` の branch protection で `quality` と `e2e` の成功を必須にした。
 
 次は **フェーズ5（CD の線：Vercel 本番/プレビュー運用）** に進む。

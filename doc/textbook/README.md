@@ -79,7 +79,7 @@
 | **Lint** | ESLint CLI（例: `eslint .`）。※ Next.js 16 以降は `next lint` ではなく ESLint CLI を使う。 |
 | **型チェック** | `tsc --noEmit`。 |
 | **ユニットテスト** | **Vitest + React Testing Library** で「ToDo の1画面・小さな部品」から。 |
-| **E2E（Playwright）** | **主要導線スモーク1本**（ログイン→追加→完了→削除→ログアウト）を用意する。**ローカルは任意手順**、**CI では PR 必須ゲート**にする。実行は **方式A**（`supabase start` でローカル / CI ランナー内に Supabase を立て、その DB に対して実行）。 |
+| **E2E（Playwright）** | **主要導線スモーク1本**（ログイン→追加→完了→削除→ログアウト）を用意する。**ローカルは任意手順**、**CI では PR 必須ゲート**にする。接続先は **`supabase start` で立てた DB**（手元のローカル / CI ランナー内。staging は別途用意しない）。 |
 | **CI で実行** | `pnpm run lint` / `pnpm run typecheck` / `pnpm run test` を `quality` ジョブ、E2E スモークを `e2e` ジョブ（`needs: quality`）で GitHub Actions（**`ubuntu-latest`**）実行。**Node バージョンはフェーズ2の開発用コンテナ / `.nvmrc` と一致**させる。 |
 
 「全部グリーンになるまでマージしない」をここで体験すると、CD の意味が掴みやすい。開発が Ubuntu + Docker なら、CI も Linux ジョブに寄せて差分を小さくできる。
@@ -100,7 +100,7 @@
 
 ## フェーズ6：「修正してリリース」を一周する（ToDo に期限を追加）＋ CI を育てる
 
-題材は **ToDo に期限（`due_date`）を追加**する変更。**マイグレーションを伴う実機能**で一周することで、方式Aの CI（PR の migration を当てた DB で E2E）が効くことを体感する。
+題材は **ToDo に期限（`due_date`）を追加**する変更。**マイグレーションを伴う実機能**で一周することで、**CI の `e2e` ジョブ**（PR の migration を当てた DB で E2E）が効くことを体感する。
 
 1. **ブランチ**を切る（`feat/todo-due-date`）。スキーマ（migration）＋アプリ＋テストを 1 つの PR にまとめる。
 2. **マイグレーション**で `due_date`（NULL 許容の追加列）を足し、ローカル `supabase db reset` で確認。

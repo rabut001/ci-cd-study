@@ -92,7 +92,7 @@
 |--------|------|
 | **Vercel 連携** | GitHub リポジトリを Import する。**`main` → Production**、**PR → Preview** がデフォルトで使える。 |
 | **ビルド確認** | **開発用 Docker コンテナ内**（または CI と同じ Dockerfile を使うワンオフ実行）で **`next build`** が通ること。環境変数不足で落ちないか確認。 |
-| **Supabase Auth URL** | Vercel の Production / Preview URL とローカル `http://127.0.0.1:3000` を Supabase の **Site URL** / **Redirect URLs** に登録する（**フェーズ5・8**）。 |
+| **Supabase Auth URL** | Vercel の Production / Preview URL とローカル `http://127.0.0.1:3000` を Supabase の **Site URL** / **Redirect URLs** に登録する（**フェーズ5・5**。本番動作確認 **6** の前）。 |
 
 ---
 

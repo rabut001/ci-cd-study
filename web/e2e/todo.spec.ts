@@ -7,6 +7,7 @@ test("ToDo の主要導線（サインアップ→ログイン→追加→完了
   const email = `e2e_${unique}@example.com`;
   const password = "password123";
   const title = `買い物 ${unique}`;
+  const due = "2099-12-31";
 
   await page.goto("/login");
   await page.getByLabel("email").fill(email);
@@ -19,8 +20,10 @@ test("ToDo の主要導線（サインアップ→ログイン→追加→完了
   await expect(page.getByRole("heading", { name: "ToDo" })).toBeVisible();
 
   await page.getByLabel("やること").fill(title);
+  await page.getByLabel("期限").fill(due);
   await page.getByRole("button", { name: "追加" }).click();
   await expect(page.getByText(title)).toBeVisible();
+  await expect(page.getByLabel(`${title} の期限`)).toHaveValue(due);
 
   // 完了切り替えは「DB 更新→再フェッチ後に反映」されるため、click + ポーリング検証にする
   const checkbox = page.getByRole("checkbox", { name: `${title} の完了状態` });

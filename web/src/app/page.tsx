@@ -9,6 +9,7 @@ type Todo = {
   id: string;
   title: string;
   is_done: boolean;
+  due_date: string | null;
 };
 
 const inputClassName =
@@ -20,16 +21,23 @@ const primaryButtonClassName =
 const secondaryButtonClassName =
   "rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700";
 
-export default function Page() {
+  const fieldLabelClassName =
+  "flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400";
+
+const formPanelClassName =
+  "mb-6 rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900";
+
+  export default function Page() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("todos")
-      .select("id, title, is_done")
+      .select("id, title, is_done, due_date")
       .order("created_at", { ascending: false });
     setTodos(data ?? []);
   }, []);
@@ -45,12 +53,17 @@ export default function Page() {
     });
   }, [router, load]);
 
+  async function updateDueDate(id: string, nextDueDate: string | null) {
+    await supabase.from("todos").update({ due_date: nextDueDate }).eq("id", id);
+    await load();
+  }
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     const value = title.trim();
     if (!value) return;
-    await supabase.from("todos").insert({ title: value });
+    await supabase.from("todos").insert({ title: value, due_date: dueDate || null });
     setTitle("");
+    setDueDate("");
     await load();
   }
 
@@ -86,17 +99,31 @@ export default function Page() {
         </button>
       </header>
 
-      <form className="mb-6 flex gap-2" onSubmit={addTodo}>
-        <input
-          className={inputClassName}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="やること"
-          aria-label="やること"
-        />
-        <button type="submit" className={primaryButtonClassName}>
-          追加
-        </button>
+      <form className={formPanelClassName} onSubmit={addTodo}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <label className={fieldLabelClassName}>
+            やること
+            <input
+              className={`${inputClassName} w-full`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+          <label className={`${fieldLabelClassName} sm:min-w-[10rem]`}>
+            期限
+            <input
+              className={`${inputClassName} w-full`}
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button type="submit" className={primaryButtonClassName}>
+            追加
+          </button>
+        </div>
       </form>
 
       <ul className="flex flex-col gap-2">
@@ -109,7 +136,9 @@ export default function Page() {
               id={todo.id}
               title={todo.title}
               isDone={todo.is_done}
+              dueDate={todo.due_date}
               onToggle={toggle}
+              onDueDateChange={updateDueDate}
             />
             <button
               type="button"

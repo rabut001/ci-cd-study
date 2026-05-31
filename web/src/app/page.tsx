@@ -21,7 +21,13 @@ const primaryButtonClassName =
 const secondaryButtonClassName =
   "rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700";
 
-export default function Page() {
+  const fieldLabelClassName =
+  "flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400";
+
+const formPanelClassName =
+  "mb-6 rounded-md border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-900";
+
+  export default function Page() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
@@ -93,24 +99,31 @@ export default function Page() {
         </button>
       </header>
 
-      <form className="mb-6 flex flex-wrap gap-2" onSubmit={addTodo}>
-        <input
-          className={inputClassName}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="やること"
-          aria-label="やること"
-        />
-        <input
-          className={inputClassName}
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          aria-label="期限"
-        />
-        <button type="submit" className={primaryButtonClassName}>
-          追加
-        </button>
+      <form className={formPanelClassName} onSubmit={addTodo}>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <label className={fieldLabelClassName}>
+            やること
+            <input
+              className={`${inputClassName} w-full`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </label>
+          <label className={`${fieldLabelClassName} sm:min-w-[10rem]`}>
+            期限
+            <input
+              className={`${inputClassName} w-full`}
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button type="submit" className={primaryButtonClassName}>
+            追加
+          </button>
+        </div>
       </form>
 
       <ul className="flex flex-col gap-2">

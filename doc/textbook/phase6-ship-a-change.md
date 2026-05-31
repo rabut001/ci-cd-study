@@ -522,7 +522,7 @@ const formPanelClassName =
 
 ### 6.1 確認 → コミット
 
-§5 と同様に `pnpm run dev` → 品質ゲート → `pnpm run e2e` を実行する。
+§5 と同様に `pnpm run dev` でブラウザから動作確認 → 品質ゲート → `pnpm run e2e` を実行する。
 
 ```bash
 cd /workspace

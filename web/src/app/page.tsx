@@ -9,6 +9,7 @@ type Todo = {
   id: string;
   title: string;
   is_done: boolean;
+  due_date: string | null;
 };
 
 const inputClassName =
@@ -24,12 +25,13 @@ export default function Page() {
   const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("todos")
-      .select("id, title, is_done")
+      .select("id, title, is_done, due_date")
       .order("created_at", { ascending: false });
     setTodos(data ?? []);
   }, []);
@@ -45,12 +47,17 @@ export default function Page() {
     });
   }, [router, load]);
 
+  async function updateDueDate(id: string, nextDueDate: string | null) {
+    await supabase.from("todos").update({ due_date: nextDueDate }).eq("id", id);
+    await load();
+  }
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
     const value = title.trim();
     if (!value) return;
-    await supabase.from("todos").insert({ title: value });
+    await supabase.from("todos").insert({ title: value, due_date: dueDate || null });
     setTitle("");
+    setDueDate("");
     await load();
   }
 
@@ -86,13 +93,20 @@ export default function Page() {
         </button>
       </header>
 
-      <form className="mb-6 flex gap-2" onSubmit={addTodo}>
+      <form className="mb-6 flex flex-wrap gap-2" onSubmit={addTodo}>
         <input
           className={inputClassName}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="やること"
           aria-label="やること"
+        />
+        <input
+          className={inputClassName}
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          aria-label="期限"
         />
         <button type="submit" className={primaryButtonClassName}>
           追加
@@ -109,7 +123,9 @@ export default function Page() {
               id={todo.id}
               title={todo.title}
               isDone={todo.is_done}
+              dueDate={todo.due_date}
               onToggle={toggle}
+              onDueDateChange={updateDueDate}
             />
             <button
               type="button"

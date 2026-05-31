@@ -96,21 +96,60 @@
 
 ---
 
-> **CI（GitHub Actions）について**：CI ワークフロー（`ci.yml`）の作成とブランチ保護は **フェーズ4（CI の準備）** に含む。キャッシュ・バージョン固定・同時実行制御・夜間 E2E などの **CI の最適化（育てる）** は、実際に一周してから **フェーズ6 §10** で行う。
+> **CI（GitHub Actions）について**：CI ワークフロー（`ci.yml`）の作成とブランチ保護は **フェーズ4（CI の準備）** に含む。キャッシュ・バージョン固定・同時実行制御・夜間 E2E などの **CI の最適化（育てる）** は、実際に一周してから **フェーズ6 §11** で行う。
 
-## フェーズ6：「修正してリリース」を一周する（ToDo に期限を追加）＋ CI を育てる
+## フェーズ6：「修正してリリース」を一周する（ToDo に期限 `due_date` を追加）
 
-題材は **ToDo に期限（`due_date`）を追加**する変更。**マイグレーションを伴う実機能**で一周することで、**CI の `e2e` ジョブ**（PR の migration を当てた DB で E2E）が効くことを体感する。
+**前提**: フェーズ5まで完了済み。ToDo アプリはタイトル・完了・削除のみで、期限フィールドはまだない。
 
-1. **ブランチ**を切る（`feat/todo-due-date`）。スキーマ（migration）＋アプリ＋テストを 1 つの PR にまとめる。
-2. **マイグレーション**で `due_date`（NULL 許容の追加列）を足し、ローカル `supabase db reset` で確認。
-3. **実装**（`page.tsx` に期限の入力・表示）と**テスト更新**（E2E スモークに期限を組み込む）。
-4. **PR を開く** → CI（`quality` → `e2e`）が走り、**コードと migration の整合を自動検証** → **Vercel Preview** で目視確認（クラウドへは `supabase db push`）。
-5. レビュー後 **`main` にマージ** → **Production が更新**。**DB を先に（expand）→ コードを後で**の順を守る。
-6. （任意）**GitHub Release** / タグで `v0.2.0` のようにバージョンを切る。
-7. 一周を見届けたら、**§10 で CI を育てる**（キャッシュ・バージョン固定・`concurrency`・夜間 E2E など）。
+**題材**: ToDo に **期限（`due_date`）** を追加する。DB 列は **NULL 許容の `date` 型**なので前方互換であり、安全にリリースの練習ができる。
 
-これで「CI が守り、CD が届ける」一周ができる。詳細手順は **`phase6-ship-a-change.md`** を参照。
+**このフェーズのゴール**
+
+- `todos` テーブルに `due_date` 列を **マイグレーション**で追加する
+- 追加フォームと一覧で期限を **入力・編集**できる UI を実装する
+- **ユニットテスト**と **E2E スモーク**に期限の検証を追加する
+- PR で **CI**（`quality` → `e2e`）が通ることを確認する
+- **Vercel Preview** で目視確認し、`main` マージ後に **Production**（Vercel / Supabase）へ反映する
+
+### 作業の流れ
+
+| ステップ | 内容 |
+|----------|------|
+| 1. ブランチ | `feat/todo-due-date` を切る。スキーマ + アプリ + テストを **1 つの PR** にまとめる |
+| 2. マイグレーション | `due_date date` 列（NULL 許容）を追加。ローカルで `supabase db reset` して確認 |
+| 3. 機能実装 + テスト | `page.tsx` / `TodoItem.tsx` に期限 UI。ユニット・E2E を更新 → **1 本目コミット** |
+| 4. フォーム UI 改善 | ラベル・枠・ボタン配置を整える → **2 本目コミット** |
+| 5. PR + CI | push して PR 作成。`quality` → `e2e` が緑になることを確認 |
+| 6. Preview 確認 | `supabase db push` でクラウド DB に migration を適用 → Preview URL で目視確認 |
+| 7. 本番反映 | PR を `main` にマージ → Vercel Production が更新される |
+| 8. （任意）タグ | `v0.2.0` などでリリースを記録 |
+| 9. （任意）CI 最適化 | キャッシュ・バージョン固定・`concurrency` など（§11） |
+
+### 変更対象（概要）
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `supabase/migrations/` | `due_date` 列追加の SQL |
+| `web/src/app/page.tsx` | 型・取得・追加フォーム・一覧での期限更新 |
+| `web/src/components/TodoItem.tsx` | 各行に「期限:」付き日付入力 |
+| `web/src/components/TodoItem.test.tsx` | 期限表示・変更のユニットテスト 3 本追加 |
+| `web/e2e/todo.spec.ts` | 追加時の期限入力と一覧表示を E2E に組み込む |
+
+### CI / CD で確認すること
+
+- **CI `e2e`**: PR の migration を当てた DB に対して E2E が走り、**コードと migration の整合**を自動検証する（migration 漏れがあれば `column does not exist` で落ちる）
+- **Preview**: Vercel が PR のコードをデプロイ。クラウド Supabase には **`supabase db push` を先に実行**しておく
+- **Production**: `main` マージで Vercel が自動デプロイ。**DB を先に（expand）→ コードを後で**の順を守る
+
+### コミット構成（2 本 / 1 PR）
+
+1. `feat: add due_date to todos` — migration + 期限の追加・一覧編集 + テスト
+2. `style: improve todo form layout and labels` — 追加フォームのラベル・枠・ボタン配置
+
+各コミット前に `pnpm run dev` で目視確認 → `lint` / `typecheck` / `test` / `build` / `e2e` を実行する。
+
+詳細手順・コード例・チェックリストは **`phase6-ship-a-change.md`** を参照。
 
 ---
 
